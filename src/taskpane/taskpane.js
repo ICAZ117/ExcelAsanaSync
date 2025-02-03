@@ -3,19 +3,31 @@
  * See LICENSE in the project root for license information.
  */
 
-/* global console, document, Excel, Office */
+/* global console, document, Excel, Office, OfficeRuntime */
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
+    // Ensure the DOM is fully loaded before accessing elements
     checkAuthStatus();
-    document.getElementById("launchSync").onclick = () => tryCatch(launchSync);
-    document.getElementById("sideload-msg").style.display = "none";
-    document.getElementById("app-body").style.display = "flex";
+    const launchSyncButton = document.getElementById("launchSync");
+    if (launchSyncButton) {
+      launchSyncButton.onclick = () => tryCatch(launchSync);
+    }
+    const sideloadMsg = document.getElementById("sideload-msg");
+    if (sideloadMsg) {
+      sideloadMsg.style.display = "none";
+    }
+    const appBody = document.getElementById("app-body");
+    if (appBody) {
+      appBody.style.display = "flex";
+    }
   }
 });
 
+var dialog = null;
+
 async function launchSync() {
-  const token = Office.context.roamingSettings.get("firebaseToken");
+  const token = await getStorageItem("firebaseToken");
   if (!token) {
     openAuthDialog();
     return;
@@ -28,27 +40,65 @@ async function launchSync() {
   });
 }
 
-function checkAuthStatus() {
-  const token = Office.context.roamingSettings.get("firebaseToken");
+async function checkAuthStatus() {
+  console.log("Checking auth status...");
+
+  const token = await getStorageItem("firebaseToken");
   if (token) {
-    // User is authenticated
+    console.log("Token found:", token);
+
+    const userDataElement = document.getElementById("user-data");
+    if (userDataElement) {
+      userDataElement.innerText = `Token: ${token}`; // Display token in the DOM
+    }
   } else {
-    // User is not authenticated, open auth dialog
+    console.log("No token found, opening auth dialog...");
     openAuthDialog();
   }
 }
 
 function openAuthDialog() {
-  Office.context.ui.displayDialogAsync('https://your-auth-url.com', { height: 50, width: 50 }, (result) => {
-    const dialog = result.value;
-    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (args) => {
-      const token = args.message;
-      Office.context.roamingSettings.set("firebaseToken", token);
-      Office.context.roamingSettings.saveAsync();
-      dialog.close();
-    });
-  });
+  Office.context.ui.displayDialogAsync(
+    "https://localhost:8080/AuthTokenProvider",
+    { height: 50, width: 50, promptBeforeOpen: false },
+    function (asyncResult) {
+      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+        dialog = asyncResult.value;
+        // Listen for messages (i.e. the Firebase UID) from the dialog.
+        dialog.addEventHandler(Office.EventType.DialogMessageReceived, processMessage);
+      } else {
+        console.error("Dialog failed to open: " + asyncResult.error.message);
+      }
+    }
+  );
 }
+
+function processMessage(arg) {
+  // Here we assume the auth page returns the Firebase UID as a plain string.
+  // Display the UID in the 'result' div.
+  document.getElementById("user-data").innerText = arg;
+  // Optionally, close the dialog after receiving the message.
+  if (dialog) {
+    dialog.close();
+  }
+}
+
+async function getStorageItem(key) {
+  try {
+    return await OfficeRuntime.storage.getItem(key);
+  } catch (error) {
+    console.error(`Error getting storage item ${key}:`, error);
+    return null;
+  }
+}
+
+// async function setStorageItem(key, value) {
+//   try {
+//     await OfficeRuntime.storage.setItem(key, value);
+//   } catch (error) {
+//     console.error(`Error setting storage item ${key}:`, error);
+//   }
+// }
 
 /** Default helper for invoking an action and handling errors. */
 async function tryCatch(callback) {
