@@ -1,13 +1,10 @@
-<!-- Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT License. -->
-<!-- This file shows how to design a first-run page that provides a welcome screen to the user about the features of the add-in. -->
-
 <!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Contoso Task Pane Add-in</title>
+    <title>Asana API Sync Tool</title>
 
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
@@ -19,39 +16,61 @@
     <!-- Office JavaScript API -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
 
-    <!-- For more information on Fluent UI, visit https://developer.microsoft.com/fluentui#/. -->
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
     <link
       rel="stylesheet"
       href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"
     />
 
-    <!-- Template styles -->
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
   </head>
 
   <body class="ms-font-m ms-welcome ms-Fabric">
     <div class="w-100 d-flex justify-content-center">
-      <img src="../../assets/LRH-logo.png" alt="Lakleand Regional Health" width="300" />
+      <img src="../../assets/LRH-logo.png" alt="Lakeland Regional Health" width="300" />
     </div>
 
     <h1 class="mt-2">Asana API Sync Tool</h1>
-    <main id="app-body" class="ms-welcome__main">
-      <button class="btn btn-primary" id="launchSync">Synchronize Selected Rows</button>
-      <div id="api-key" style="margin-top: 20px; width: 200px; background-color: lightgray; color: black">
-        loading...
-      </div>
-      <!-- Span to display the token -->
-    </main>
-  </body>
 
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: white;
-    }
-  </style>
+    <main id="app-body" class="ms-welcome__main">
+      <div id="auth-container">
+        <h3>Login</h3>
+        <input type="email" id="email" placeholder="Enter email" class="form-control mb-2" />
+        <input type="password" id="password" placeholder="Enter password" class="form-control mb-2" />
+        <button id="login-btn" class="btn btn-success">Log in</button>
+        <button id="logout-btn" class="btn btn-danger mt-2" style="display: none;">Log out</button>
+      </div>
+
+      <div id="user-data" class="info-box">Checking authentication...</div>
+      <div id="api-key" class="info-box">Fetching API key...</div>
+
+      <button class="btn btn-primary mt-3" id="launchSync" style="display: none;">Synchronize Selected Rows</button>
+    </main>
+
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: white;
+      }
+      .info-box {
+        margin-top: 20px;
+        width: 300px;
+        padding: 10px;
+        background-color: lightgray;
+        color: black;
+        text-align: center;
+        border-radius: 5px;
+      }
+    </style>
+
+    <script src="taskpane.js"></script>
+  </body>
 </html>

@@ -7,7 +7,7 @@
 /* global console, document, Excel, Office, OfficeRuntime */
 
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 // Your Firebase project configuration
@@ -25,12 +25,27 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
-const provider = new GoogleAuthProvider();
 
 Office.onReady((info) => {
+  console.log("Office is ready. Checking authentication status...");
+
+  // Check authentication status on page load
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("User is logged in:", user.email);
+      userDataElement.innerText = `Logged in as: ${user.email}`;
+      fetchApiKey(user.uid);
+      loginButton.style.display = "none";
+      logoutButton.style.display = "block";
+    } else {
+      console.log("User is not logged in.");
+      userDataElement.innerText = "Not logged in";
+      loginButton.style.display = "block";
+      logoutButton.style.display = "none";
+    }
+  });
   if (info.host === Office.HostType.Excel) {
     // Ensure the DOM is fully loaded before accessing elements
-    checkAuthStatus();
     const launchSyncButton = document.getElementById("launchSync");
     if (launchSyncButton) {
       launchSyncButton.onclick = () => tryCatch(launchSync);
@@ -59,60 +74,60 @@ async function launchSync() {
   });
 }
 
-async function checkAuthStatus() {
-  console.log("Checking Firebase authentication...");
+// Get UI elements
+const emailField = document.getElementById("email");
+const passwordField = document.getElementById("password");
+const loginButton = document.getElementById("login-btn");
+const logoutButton = document.getElementById("logout-btn");
+const userDataElement = document.getElementById("user-data");
+const apiKeyElement = document.getElementById("api-key");
+const syncButton = document.getElementById("launchSync");
 
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log("User is logged in:", user.email);
-      document.getElementById("user-data").innerText = `Logged in as: ${user.email}`;
+// Function to log in the user
+loginButton.addEventListener("click", async () => {
+  const email = emailField.value;
+  const password = passwordField.value;
 
-      // Fetch and display the user's Asana API key
-      const apiKey = await fetchApiKey(user.uid);
-      if (apiKey) {
-        document.getElementById("api-key").innerText = `Asana API Key: ${apiKey}`;
-        await OfficeRuntime.storage.setItem("asanaApiKey", apiKey);
-      }
-    } else {
-      console.log("User is not logged in.");
-      document.getElementById("user-data").innerText = "Not logged in";
-      promptUserLogin();
-    }
-  });
-}
-
-function promptUserLogin() {
-  const loginBtn = document.createElement("button");
-  loginBtn.innerText = "Log in with Google";
-  loginBtn.onclick = loginWithGoogle;
-  document.getElementById("auth-container").appendChild(loginBtn);
-}
-
-async function loginWithGoogle() {
   try {
-    const result = await signInWithPopup(auth, provider);
-    console.log("User logged in:", result.user.email);
-    checkAuthStatus(); // Rerun authentication check
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("User logged in:", userCredential.user.email);
+    fetchApiKey(userCredential.user.uid);
   } catch (error) {
-    console.error("Login failed:", error);
+    console.error("Login failed:", error.message);
+    userDataElement.innerText = "Login failed. Check credentials.";
   }
-}
+});
 
+// Function to fetch Asana API Key
 async function fetchApiKey(uid) {
   console.log("Fetching API key for user:", uid);
   try {
     const userDoc = await getDoc(doc(db, "users", uid));
     if (userDoc.exists()) {
-      return userDoc.data().apiKey;
+      const apiKey = userDoc.data().apiKey;
+      apiKeyElement.innerText = `Asana API Key: ${apiKey}`;
+      await OfficeRuntime.storage.setItem("asanaApiKey", apiKey);
+      syncButton.style.display = "block"; // Show sync button after API key is fetched
     } else {
-      console.error("No API key found for user.");
-      return null;
+      apiKeyElement.innerText = "No API key found.";
     }
   } catch (error) {
     console.error("Error fetching API key:", error);
-    return null;
   }
 }
+
+// Function to log out
+logoutButton.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+    console.log("User logged out.");
+    userDataElement.innerText = "Not logged in";
+    apiKeyElement.innerText = "";
+    syncButton.style.display = "none";
+  } catch (error) {
+    console.error("Logout failed:", error);
+  }
+});
 
 async function getStorageItem(key) {
   try {
