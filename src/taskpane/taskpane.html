@@ -37,18 +37,22 @@
     <h1 class="mt-2">Asana API Sync Tool</h1>
 
     <main id="app-body" class="ms-welcome__main">
-      <div id="auth-container">
-        <h3>Login</h3>
+      <div id="auth-container" class="info-box">
+        <h3 id="form-header">Login</h3>
         <input type="email" id="email" placeholder="Enter email" class="form-control mb-2" />
         <input type="password" id="password" placeholder="Enter password" class="form-control mb-2" />
         <button id="login-btn" class="btn btn-success">Log in</button>
-        <button id="logout-btn" class="btn btn-danger mt-2" style="display: none;">Log out</button>
       </div>
 
-      <div id="user-data" class="info-box">Checking authentication...</div>
-      <div id="api-key" class="info-box">Fetching API key...</div>
+      <div id="account-info" class="info-box" style="display: none;">
+        <h5 class="center">Account Info:</h5>
+        <b>Email:</b> <span id="user-data">Not logged in!</span>
+        <br><br>
+        <b>Asana API Key:</b> <div id="api-key" style="overflow-x: auto;">Fetching API key...</div>
+        <button id="logout-btn" class="btn btn-danger mt-2 w-100" style="display: none">Log out</button>
+      </div>
 
-      <button class="btn btn-primary mt-3" id="launchSync" style="display: none;">Synchronize Selected Rows</button>
+      <button class="btn btn-primary mt-3" id="launchSync" style="display: none">Synchronize Selected Rows</button>
     </main>
 
     <style>
@@ -66,8 +70,11 @@
         padding: 10px;
         background-color: lightgray;
         color: black;
-        text-align: center;
         border-radius: 5px;
+      }
+      .center {
+        display: flex;
+        justify-content: center;
       }
     </style>
 

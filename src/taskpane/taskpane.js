@@ -26,6 +26,18 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
+// Get UI elements
+const emailField = document.getElementById("email");
+const passwordField = document.getElementById("password");
+const loginButton = document.getElementById("login-btn");
+const logoutButton = document.getElementById("logout-btn");
+const userDataElement = document.getElementById("user-data");
+const apiKeyElement = document.getElementById("api-key");
+const syncButton = document.getElementById("launchSync");
+const formHeader = document.getElementById("form-header");
+const authContainer = document.getElementById("auth-container");
+const accountInfo = document.getElementById("account-info");
+
 Office.onReady((info) => {
   console.log("Office is ready. Checking authentication status...");
 
@@ -33,14 +45,17 @@ Office.onReady((info) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       console.log("User is logged in:", user.email);
-      userDataElement.innerText = `Logged in as: ${user.email}`;
+      userDataElement.innerText = `${user.email}`;
       fetchApiKey(user.uid);
-      loginButton.style.display = "none";
+      authContainer.style.display = "none";
+      accountInfo.style.display = "block";
       logoutButton.style.display = "block";
     } else {
       console.log("User is not logged in.");
-      userDataElement.innerText = "Not logged in";
-      loginButton.style.display = "block";
+      userDataElement.innerText = "Not logged in!";
+      apiKeyElement.innerText = "Fetching API key...";
+      authContainer.style.display = "block";
+      accountInfo.style.display = "none";
       logoutButton.style.display = "none";
     }
   });
@@ -74,15 +89,6 @@ async function launchSync() {
   });
 }
 
-// Get UI elements
-const emailField = document.getElementById("email");
-const passwordField = document.getElementById("password");
-const loginButton = document.getElementById("login-btn");
-const logoutButton = document.getElementById("logout-btn");
-const userDataElement = document.getElementById("user-data");
-const apiKeyElement = document.getElementById("api-key");
-const syncButton = document.getElementById("launchSync");
-
 // Function to log in the user
 loginButton.addEventListener("click", async () => {
   const email = emailField.value;
@@ -105,7 +111,7 @@ async function fetchApiKey(uid) {
     const userDoc = await getDoc(doc(db, "users", uid));
     if (userDoc.exists()) {
       const apiKey = userDoc.data().apiKey;
-      apiKeyElement.innerText = `Asana API Key: ${apiKey}`;
+      apiKeyElement.innerText = `${apiKey}`;
       await OfficeRuntime.storage.setItem("asanaApiKey", apiKey);
       syncButton.style.display = "block"; // Show sync button after API key is fetched
     } else {
@@ -121,7 +127,8 @@ logoutButton.addEventListener("click", async () => {
   try {
     await signOut(auth);
     console.log("User logged out.");
-    userDataElement.innerText = "Not logged in";
+    userDataElement.innerText = "Not logged in!";
+    apiKeyElement.innerText = "Fetching API key...";
     apiKeyElement.innerText = "";
     syncButton.style.display = "none";
   } catch (error) {
