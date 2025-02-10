@@ -1,9 +1,31 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
  * See LICENSE in the project root for license information.
  */
 
 /* global console, document, Excel, Office, OfficeRuntime */
+
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+
+// Your Firebase project configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBvBL5nTfjdu85awdDkGTS-HtlUvTLcD2U",
+  authDomain: "lrh-codebook.firebaseapp.com",
+  projectId: "lrh-codebook",
+  storageBucket: "lrh-codebook.appspot.com",
+  messagingSenderId: "19502263714",
+  appId: "1:19502263714:web:563e622ef36866ca5d16fb",
+  measurementId: "G-VE6JHR065F",
+};
+
+// Initialize Firebase
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const provider = new GoogleAuthProvider();
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
@@ -24,12 +46,9 @@ Office.onReady((info) => {
   }
 });
 
-var dialog = null;
-
 async function launchSync() {
   const token = await getStorageItem("firebaseToken");
   if (!token) {
-    openAuthDialog();
     return;
   }
 
@@ -41,45 +60,57 @@ async function launchSync() {
 }
 
 async function checkAuthStatus() {
-  console.log("Checking auth status...");
+  console.log("Checking Firebase authentication...");
 
-  const token = await getStorageItem("firebaseToken");
-  if (token) {
-    console.log("Token found:", token);
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log("User is logged in:", user.email);
+      document.getElementById("user-data").innerText = `Logged in as: ${user.email}`;
 
-    const userDataElement = document.getElementById("user-data");
-    if (userDataElement) {
-      userDataElement.innerText = `Token: ${token}`; // Display token in the DOM
+      // Fetch and display the user's Asana API key
+      const apiKey = await fetchApiKey(user.uid);
+      if (apiKey) {
+        document.getElementById("api-key").innerText = `Asana API Key: ${apiKey}`;
+        await OfficeRuntime.storage.setItem("asanaApiKey", apiKey);
+      }
+    } else {
+      console.log("User is not logged in.");
+      document.getElementById("user-data").innerText = "Not logged in";
+      promptUserLogin();
     }
-  } else {
-    console.log("No token found, opening auth dialog...");
-    openAuthDialog();
+  });
+}
+
+function promptUserLogin() {
+  const loginBtn = document.createElement("button");
+  loginBtn.innerText = "Log in with Google";
+  loginBtn.onclick = loginWithGoogle;
+  document.getElementById("auth-container").appendChild(loginBtn);
+}
+
+async function loginWithGoogle() {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    console.log("User logged in:", result.user.email);
+    checkAuthStatus(); // Rerun authentication check
+  } catch (error) {
+    console.error("Login failed:", error);
   }
 }
 
-function openAuthDialog() {
-  Office.context.ui.displayDialogAsync(
-    "https://localhost:8080/AuthTokenProvider",
-    { height: 50, width: 50, promptBeforeOpen: false },
-    function (asyncResult) {
-      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-        dialog = asyncResult.value;
-        // Listen for messages (i.e. the Firebase UID) from the dialog.
-        dialog.addEventHandler(Office.EventType.DialogMessageReceived, processMessage);
-      } else {
-        console.error("Dialog failed to open: " + asyncResult.error.message);
-      }
+async function fetchApiKey(uid) {
+  console.log("Fetching API key for user:", uid);
+  try {
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (userDoc.exists()) {
+      return userDoc.data().apiKey;
+    } else {
+      console.error("No API key found for user.");
+      return null;
     }
-  );
-}
-
-function processMessage(arg) {
-  // Here we assume the auth page returns the Firebase UID as a plain string.
-  // Display the UID in the 'result' div.
-  document.getElementById("user-data").innerText = arg;
-  // Optionally, close the dialog after receiving the message.
-  if (dialog) {
-    dialog.close();
+  } catch (error) {
+    console.error("Error fetching API key:", error);
+    return null;
   }
 }
 

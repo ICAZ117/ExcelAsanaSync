@@ -12,6 +12,9 @@
   <AppDomains>
     <AppDomain>https://www.contoso.com</AppDomain>
     <AppDomain>https://lrh-codebook.web.app</AppDomain>
+    <AppDomain>https://localhost:3000</AppDomain>
+    <AppDomain>https://localhost:8080</AppDomain>
+    <AppDomain>https://lipsum.com/</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook"/>
