@@ -27,6 +27,15 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
 // Get UI elements
+// Nav
+const navToggler = document.getElementById("nav-toggler");
+const navHome = document.getElementById("nav-home");
+const navAccount = document.getElementById("nav-account");
+
+// Auth Page
+const authPage = document.getElementById("auth-page");
+const authContainer = document.getElementById("auth-container");
+const accountInfo = document.getElementById("account-info");
 const emailField = document.getElementById("email");
 const passwordField = document.getElementById("password");
 const loginButton = document.getElementById("login-btn");
@@ -34,9 +43,10 @@ const logoutButton = document.getElementById("logout-btn");
 const userDataElement = document.getElementById("user-data");
 const apiKeyElement = document.getElementById("api-key");
 const syncButton = document.getElementById("launchSync");
-const formHeader = document.getElementById("form-header");
-const authContainer = document.getElementById("auth-container");
-const accountInfo = document.getElementById("account-info");
+const backBtn = document.getElementById("back-btn");
+
+// Sync Page
+const syncPage = document.getElementById("sync-page");
 
 Office.onReady((info) => {
   console.log("Office is ready. Checking authentication status...");
@@ -49,6 +59,7 @@ Office.onReady((info) => {
       fetchApiKey(user.uid);
       authContainer.style.display = "none";
       accountInfo.style.display = "block";
+      backBtn.style.display = "block";
       logoutButton.style.display = "block";
     } else {
       console.log("User is not logged in.");
@@ -56,11 +67,34 @@ Office.onReady((info) => {
       apiKeyElement.innerText = "Fetching API key...";
       authContainer.style.display = "block";
       accountInfo.style.display = "none";
+      backBtn.style.display = "none";
       logoutButton.style.display = "none";
     }
   });
   if (info.host === Office.HostType.Excel) {
     // Ensure the DOM is fully loaded before accessing elements
+    navToggler.onclick = function () {
+      // if style is display: none, set to block, else set to none
+      if (document.getElementById("navbarNav").style.display === "none") {
+        document.getElementById("navbarNav").style.display = "block";
+      } else {
+        document.getElementById("navbarNav").style.display = "none";
+      }
+    };
+    navHome.onclick = function () {
+      authPage.style.display = "none";
+      syncPage.style.display = "block";
+      navToggler.click();
+    };
+    navAccount.onclick = function () {
+      authPage.style.display = "block";
+      syncPage.style.display = "none";
+      navToggler.click();
+    };
+    backBtn.onclick = () => {
+      authPage.style.display = "none";
+      syncPage.style.display = "block";
+    };
     const launchSyncButton = document.getElementById("launchSync");
     if (launchSyncButton) {
       launchSyncButton.onclick = () => tryCatch(launchSync);

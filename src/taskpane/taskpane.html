@@ -30,29 +30,58 @@
   </head>
 
   <body class="ms-font-m ms-welcome ms-Fabric">
-    <div class="w-100 d-flex justify-content-center">
-      <img src="../../assets/LRH-logo.png" alt="Lakeland Regional Health" width="300" />
-    </div>
-
-    <h1 class="mt-2">Asana API Sync Tool</h1>
+    <!-- navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light w-100 px-3">
+      <div class="container-fluid">
+        <span class="navbar-brand"><img src="../../assets/LRH-logo.png" alt="" height="40px"></span>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+          id="nav-toggler"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav" style="display: none;">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <span class="nav-link" id="nav-home">Home</span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link" id="nav-account">Account</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
 
     <main id="app-body" class="ms-welcome__main">
-      <div id="auth-container" class="info-box">
-        <h3 id="form-header">Login</h3>
-        <input type="email" id="email" placeholder="Enter email" class="form-control mb-2" />
-        <input type="password" id="password" placeholder="Enter password" class="form-control mb-2" />
-        <button id="login-btn" class="btn btn-success">Log in</button>
-      </div>
+      <div id="auth-page">
+        <button id="back-btn" class="blank-btn" style="display: none">◀ Back to Main Page</button>
+        <div id="auth-container" class="info-box">
+          <h3 id="form-header">Login</h3>
+          <input type="email" id="email" placeholder="Enter email" class="form-control mb-2" />
+          <input type="password" id="password" placeholder="Enter password" class="form-control mb-2" />
+          <button id="login-btn" class="btn btn-success">Log in</button>
+        </div>
 
-      <div id="account-info" class="info-box" style="display: none;">
-        <h5 class="center">Account Info:</h5>
-        <b>Email:</b> <span id="user-data">Not logged in!</span>
-        <br><br>
-        <b>Asana API Key:</b> <div id="api-key" style="overflow-x: auto;">Fetching API key...</div>
-        <button id="logout-btn" class="btn btn-danger mt-2 w-100" style="display: none">Log out</button>
+        <div id="account-info" class="info-box" style="display: none">
+          <h5 class="center">Account Info:</h5>
+          <b>Email:</b> <span id="user-data">Not logged in!</span> <br /><br />
+          <b>Asana API Key:</b>
+          <div id="api-key" style="overflow-x: auto">Fetching API key...</div>
+          <button id="logout-btn" class="btn btn-danger mt-2 w-100" style="display: none">Log out</button>
+        </div>
       </div>
-
-      <button class="btn btn-primary mt-3" id="launchSync" style="display: none">Synchronize Selected Rows</button>
+      <div id="sync-page" style="display: none">
+        <button class="btn btn-primary mt-3 w-100" id="launchSync" style="display: none">
+          Synchronize Selected Rows
+        </button>
+      </div>
     </main>
 
     <style>
@@ -75,6 +104,31 @@
       .center {
         display: flex;
         justify-content: center;
+      }
+
+      .blank-btn {
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        padding: 8px;
+        border-radius: 5px;
+        background-color: lightgrey;
+      }
+
+      .blank-btn:hover {
+        background-color: grey;
+        color: white;
+        transition:
+          background-color 0.3s,
+          color 0.3s;
+      }
+
+      .blank-btn:not(:hover) {
+        background-color: lightgrey;
+        color: black;
+        transition:
+          background-color 0.3s,
+          color 0.3s;
       }
     </style>
 
