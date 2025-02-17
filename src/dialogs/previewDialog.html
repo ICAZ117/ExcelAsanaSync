@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Comment Preview</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 10px;
+      background-color: #F0F0F0;
+    }
+    .comment-card {
+      background-color: #FFFFFF;
+      border: 1px solid #E0E0E0;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .comment-header {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 5px;
+    }
+    .comment-body {
+      font-size: 16px;
+      color: #333;
+    }
+    .buttons {
+      margin-top: 20px;
+    }
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      background-color: #0078D7;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005A9E;
+    }
+  </style>
+</head>
+<body>
+  <h2>Comment Preview</h2>
+  <div id="previewContainer"></div>
+  <div class="buttons">
+    <button id="backBtn">Back</button>
+    <button id="launchSyncBtn">Launch Sync</button>
+  </div>
+  <script>
+    Office.initialize = function() {
+      // Office initialization (if needed)
+    };
+
+    // Parse the query string to retrieve preview data.
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      const dataParam = params.get('previewData');
+      return dataParam ? JSON.parse(decodeURIComponent(dataParam)) : [];
+    }
+
+    // Render the preview comments in cards.
+    function renderPreview(previewData) {
+      const container = document.getElementById('previewContainer');
+      if (previewData.length === 0) {
+        container.innerHTML = '<p>No preview data available.</p>';
+        return;
+      }
+      previewData.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'comment-card';
+        // Header: Project and Task
+        const header = document.createElement('div');
+        header.className = 'comment-header';
+        header.innerText = `${item.project} — ${item.task}`;
+        // Body: Comment text
+        const body = document.createElement('div');
+        body.className = 'comment-body';
+        body.innerText = item.comment;
+        card.appendChild(header);
+        card.appendChild(body);
+        container.appendChild(card);
+      });
+    }
+
+    const previewData = getQueryParams();
+    renderPreview(previewData);
+
+    // Button event handlers.
+    document.getElementById('backBtn').addEventListener('click', () => {
+      Office.context.ui.messageParent(JSON.stringify({ type: 'back' }));
+    });
+
+    document.getElementById('launchSyncBtn').addEventListener('click', () => {
+      Office.context.ui.messageParent(JSON.stringify({ type: 'launchSync' }));
+    });
+  </script>
+</body>
+</html>

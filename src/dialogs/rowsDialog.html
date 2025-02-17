@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Rows Display</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: left;
+    }
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      background-color: #0078D7;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005A9E;
+    }
+  </style>
+</head>
+<body>
+  <h2>Selected Rows</h2>
+  <div id="tableContainer"></div>
+  <div>
+    <button id="backBtn">Back</button>
+    <button id="previewBtn">Preview</button>
+  </div>
+  <script>
+    Office.initialize = function() {
+      // Office initialization (if needed)
+    };
+
+    // Get data from query string (passed as a JSON string)
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      const rowsParam = params.get('rows');
+      return rowsParam ? JSON.parse(decodeURIComponent(rowsParam)) : [];
+    }
+
+    // Render a table with the rows data.
+    function renderTable(rows) {
+      const container = document.getElementById('tableContainer');
+      if (rows.length === 0) {
+        container.innerHTML = '<p>No rows to display.</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      const headers = ['Project', 'Doctor', 'Date', 'Task', 'Time', 'Comment'];
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.innerText = header;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.innerText = cell;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    // Retrieve rows data and render.
+    const rows = getQueryParams();
+    renderTable(rows);
+
+    // Button event handlers send messages back to the host.
+    document.getElementById('backBtn').addEventListener('click', () => {
+      Office.context.ui.messageParent(JSON.stringify({ type: 'back' }));
+    });
+
+    document.getElementById('previewBtn').addEventListener('click', () => {
+      // Send the rows data back (so the host can compute preview details)
+      Office.context.ui.messageParent(JSON.stringify({ type: 'preview', data: rows }));
+    });
+  </script>
+</body>
+</html>

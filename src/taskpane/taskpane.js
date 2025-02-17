@@ -9,6 +9,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { asanaAPISync } from "lrh-asanaapisync";
 
 // Your Firebase project configuration
 const firebaseConfig = {
@@ -25,6 +26,17 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
+
+const taskConversion = {
+  "Meeting: Intake": "Discovery Phase",
+  "Meeting: Methods/Ideas": "Protocol Development",
+  Analysis: "Statsitical Analysis",
+  Products: "Publication",
+  "Review/Revise Package": "IRB Package Preparation Phase",
+  SAP: "IRB Package Preparation Phase",
+  DRR: "IRB Package Preparation Phase",
+  "Prep Work": "Statistical Analysis",
+};
 
 // Get UI elements
 // Nav
@@ -100,7 +112,7 @@ Office.onReady((info) => {
     };
     const launchSyncButton = document.getElementById("launchSync");
     if (launchSyncButton) {
-      launchSyncButton.onclick = () => tryCatch(launchSync);
+      launchSyncButton.onclick = launchSync;
     }
     const sideloadMsg = document.getElementById("sideload-msg");
     if (sideloadMsg) {
@@ -144,16 +156,122 @@ function handleSelectionChanged(event) {
 }
 
 async function launchSync() {
-  const token = await getStorageItem("firebaseToken");
-  if (!token) {
-    return;
-  }
+  //   const token = await getStorageItem("firebaseToken");
+  //   if (!token) {
+  //     console.log("NO TOKEN FOUND");
+  //     return;
+  //   }
 
+  console.log("BEGIN LAUNCH SYNC");
   await Excel.run(async (context) => {
-    // Your sync logic here using the token
+    // 1. Get the full rows for the current selection.
+    console.log("1. Getting the full rows for the current selection...");
 
+    // Get selected range
+    const selectedRange = context.workbook.getSelectedRange();
+    selectedRange.load("address, values"); // Load values before expansion
     await context.sync();
+    console.log("Selected Range Address: ", selectedRange.address);
+    console.log("Selected Range Values: ", selectedRange.values);
+
+    // Expand to entire row
+    const entireRows = selectedRange.getEntireRow();
+    entireRows.load("address");
+    await context.sync();
+
+    console.log("Expanded Rows Address: ", entireRows.address);
+
+    const startRow = entireRows.address.split("!")[1].split(":")[0];
+    const endRow = entireRows.address.split("!")[1].split(":")[1];
+    console.log("Start row: ", startRow);
+    console.log("End row: ", endRow);
+
+    // Loop over selected rows
+    var rows = [];
+
+    // CONTINUE HERE
+
+
+    // for (let i = startRow; i <= endRow; i++) {
+    const worksheets = context.workbook.worksheets.getActiveWorksheet();
+    console.log("Worksheets: ", worksheets);
+    const range = worksheets.getRange(13, 1, 1, 6);
+    console.log("Range: ", range);
+    range.load("values");
+    await context.sync();
+    rows.push(range.values);
+    // }
+
+    console.log("Rows: ", rows);
+
+    // 2. Open the first dialog to display the selected rows.
+    console.log("2. Open the first dialog to display the selected rows.");
+    const rowsData = encodeURIComponent(JSON.stringify(rows));
+    const rowsDialogUrl = `./dialogs/rowsDialog.html?rows=${rowsData}`;
+    Office.context.ui.displayDialogAsync(rowsDialogUrl, { height: 50, width: 50 }, (result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const rowsDialog = result.value;
+
+        // Send the rows data to the dialog
+        rowsDialog.messageParent(JSON.stringify({ type: "displayRows", data: rows }));
+
+        // Listen for messages from the rows dialog
+        rowsDialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+          const message = JSON.parse(arg.message);
+          if (message.type === "preview") {
+            // 3. Build preview data (only for rows with a valid task)
+            const previewData = rows.reduce((acc, row) => {
+              // Assuming columns: 0: project, 1: doctor, 2: date, 3: task, 4: time, 5: comment
+              const excelTask = row[3];
+              if (Object.prototype.hasOwnProperty.call(taskConversion, excelTask)) {
+                const asanaTask = taskConversion[excelTask];
+                const previewComment = `${row[2]} - ${row[5]}`;
+                acc.push({
+                  project: row[0],
+                  task: asanaTask,
+                  comment: previewComment,
+                });
+              }
+              return acc;
+            }, []);
+
+            // Open the preview dialog (ensure URL points to your previewDialog.html)
+            const previewDataEncode = encodeURIComponent(JSON.stringify(previewData));
+            const previewDialogUrl = `./dialogs/previewDialog.html?previewData=${previewDataEncode}`;
+            Office.context.ui.displayDialogAsync(previewDialogUrl, { height: 50, width: 50 }, (previewResult) => {
+              if (previewResult.status === Office.AsyncResultStatus.Succeeded) {
+                const previewDialog = previewResult.value;
+
+                // Send the preview data to the preview dialog
+                previewDialog.messageParent(JSON.stringify({ type: "displayPreview", data: previewData }));
+
+                // Handle messages from the preview dialog
+                previewDialog.addEventHandler(Office.EventType.DialogMessageReceived, (e) => {
+                  const previewMsg = JSON.parse(e.message);
+                  if (previewMsg.type === "back") {
+                    // Back: close preview and go back to rows dialog
+                    previewDialog.close();
+                  } else if (previewMsg.type === "launchSync") {
+                    // 4. Launch sync: call handleSync and close both dialogs
+                    handleSync(rows);
+                    previewDialog.close();
+                    rowsDialog.close();
+                  }
+                });
+              }
+            });
+          } else if (message.type === "back") {
+            // Back button clicked on the rows dialog: just close it.
+            rowsDialog.close();
+          }
+        });
+      }
+    });
   });
+}
+
+async function handleSync(rows) {
+  console.log("handleSync called with rows:", rows);
 }
 
 // Function to log in the user
