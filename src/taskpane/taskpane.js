@@ -47,6 +47,8 @@ const backBtn = document.getElementById("back-btn");
 
 // Sync Page
 const syncPage = document.getElementById("sync-page");
+const sheetName = document.getElementById("sheet-name");
+const selectedRows = document.getElementById("selected-rows");
 
 Office.onReady((info) => {
   console.log("Office is ready. Checking authentication status...");
@@ -61,6 +63,7 @@ Office.onReady((info) => {
       accountInfo.style.display = "block";
       backBtn.style.display = "block";
       logoutButton.style.display = "block";
+      backBtn.click();
     } else {
       console.log("User is not logged in.");
       userDataElement.innerText = "Not logged in!";
@@ -107,8 +110,38 @@ Office.onReady((info) => {
     if (appBody) {
       appBody.style.display = "flex";
     }
+
+    // Monitor function to constantly update sheet-name
+    Excel.run(async (context) => {
+      context.workbook.onSelectionChanged.add(handleSelectionChanged);
+      await context.sync();
+    });
+
+    handleSelectionChanged();
   }
 });
+
+function handleSelectionChanged(event) {
+  Excel.run(async (context) => {
+    const sheet = context.workbook.worksheets.getActiveWorksheet();
+    sheet.load("name");
+    const selection = context.workbook.getSelectedRange();
+    selection.load("address");
+    await context.sync();
+
+    // Extract just the row numbers
+    const address = selection.address;
+    const match = address.match(/\$?\D+(\d+):?\$?\D*(\d+)?/);
+
+    let rows = "";
+    if (match) {
+      rows = match[2] ? `${match[1]}-${match[2]}` : match[1];
+    }
+
+    sheetName.innerHTML = `<b>Sheet:</b> ${sheet.name}`;
+    selectedRows.innerHTML = `<b>Selected Rows:</b> ${rows}`;
+  });
+}
 
 async function launchSync() {
   const token = await getStorageItem("firebaseToken");
@@ -178,14 +211,6 @@ async function getStorageItem(key) {
     return null;
   }
 }
-
-// async function setStorageItem(key, value) {
-//   try {
-//     await OfficeRuntime.storage.setItem(key, value);
-//   } catch (error) {
-//     console.error(`Error setting storage item ${key}:`, error);
-//   }
-// }
 
 /** Default helper for invoking an action and handling errors. */
 async function tryCatch(callback) {
