@@ -63,12 +63,12 @@ const sheetName = document.getElementById("sheet-name");
 const selectedRows = document.getElementById("selected-rows");
 
 Office.onReady((info) => {
-  console.log("Office is ready. Checking authentication status...");
+  debug("Office is ready. Checking authentication status...");
 
   // Check authentication status on page load
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      console.log("User is logged in:", user.email);
+      debug("User is logged in:", user.email);
       userDataElement.innerText = `${user.email}`;
       fetchApiKey(user.uid);
       authContainer.style.display = "none";
@@ -77,7 +77,7 @@ Office.onReady((info) => {
       logoutButton.style.display = "block";
       backBtn.click();
     } else {
-      console.log("User is not logged in.");
+      debug("User is not logged in.");
       userDataElement.innerText = "Not logged in!";
       apiKeyElement.innerText = "Fetching API key...";
       authContainer.style.display = "block";
@@ -133,7 +133,7 @@ Office.onReady((info) => {
   }
 });
 
-function handleSelectionChanged(event) {
+function handleSelectionChanged() {
   Excel.run(async (context) => {
     const sheet = context.workbook.worksheets.getActiveWorksheet();
     sheet.load("name");
@@ -143,69 +143,75 @@ function handleSelectionChanged(event) {
 
     // Extract just the row numbers
     const address = selection.address;
-    const match = address.match(/\$?\D+(\d+):?\$?\D*(\d+)?/);
+    const match = address.split("!")[1].match(/\$?\D+(\d+):?\$?\D*(\d+)?/);
+
+    // debug("Address", address);
+    // debug("Match", match);
+    // debug("\n\n");
 
     let rows = "";
     if (match) {
-      rows = match[2] ? `${match[1]}-${match[2]}` : match[1];
+      rows = match[2] && match[2] != match[1] ? `${match[1]}-${match[2]}` : match[1];
     }
 
     sheetName.innerHTML = `<b>Sheet:</b> ${sheet.name}`;
     selectedRows.innerHTML = `<b>Selected Rows:</b> ${rows}`;
+    return rows;
   });
 }
 
 async function launchSync() {
   //   const token = await getStorageItem("firebaseToken");
   //   if (!token) {
-  //     console.log("NO TOKEN FOUND");
+  //     debug("NO TOKEN FOUND");
   //     return;
   //   }
 
-  console.log("BEGIN LAUNCH SYNC");
+  DEBUG_INDENT = 0;
+
+  debug("\n\nBEGIN LAUNCH SYNC", undefined, 1);
   await Excel.run(async (context) => {
     // 1. Get the full rows for the current selection.
-    console.log("1. Getting the full rows for the current selection...");
+    debug("1. Getting the full rows for the current selection", undefined, 1);
+    // ┌
 
     // Get selected range
+    debug("1.1. Getting selected range", undefined, 1);
     const selectedRange = context.workbook.getSelectedRange();
     selectedRange.load("address, values"); // Load values before expansion
     await context.sync();
-    console.log("Selected Range Address: ", selectedRange.address);
-    console.log("Selected Range Values: ", selectedRange.values);
+    debug("Selected Range Address: ", selectedRange.address);
+    debug("Selected Range Values: ", selectedRange.values, -1);
 
     // Expand to entire row
+    debug("1.2. Expanding selection to full rows", undefined, 1);
     const entireRows = selectedRange.getEntireRow();
     entireRows.load("address");
     await context.sync();
 
-    console.log("Expanded Rows Address: ", entireRows.address);
+    debug("Expanded Rows Address: ", entireRows.address);
 
     const startRow = entireRows.address.split("!")[1].split(":")[0];
     const endRow = entireRows.address.split("!")[1].split(":")[1];
-    console.log("Start row: ", startRow);
-    console.log("End row: ", endRow);
+    debug("Start row: ", startRow);
+    debug("End row: ", endRow, -1);
 
     // Loop over selected rows
+    debug("1.3. Looping over selected rows", undefined, 1);
     var rows = [];
-
-    // CONTINUE HERE
-
-
-    // for (let i = startRow; i <= endRow; i++) {
     const worksheets = context.workbook.worksheets.getActiveWorksheet();
-    console.log("Worksheets: ", worksheets);
-    const range = worksheets.getRange(13, 1, 1, 6);
-    console.log("Range: ", range);
+    debug("Worksheets: ", worksheets);
+    const range = worksheets.getRange(`A${startRow}:G${endRow}`);
+    debug("Range: ", range);
     range.load("values");
     await context.sync();
     rows.push(range.values);
-    // }
 
-    console.log("Rows: ", rows);
+    debug("Rows: ", rows, -2);
 
     // 2. Open the first dialog to display the selected rows.
-    console.log("2. Open the first dialog to display the selected rows.");
+    debug("2. Open the first dialog to display the selected rows.", undefined, 1);
+
     const rowsData = encodeURIComponent(JSON.stringify(rows));
     const rowsDialogUrl = `./dialogs/rowsDialog.html?rows=${rowsData}`;
     Office.context.ui.displayDialogAsync(rowsDialogUrl, { height: 50, width: 50 }, (result) => {
@@ -268,10 +274,12 @@ async function launchSync() {
       }
     });
   });
+
+  DEBUG_INDENT = 0;
 }
 
 async function handleSync(rows) {
-  console.log("handleSync called with rows:", rows);
+  debug("handleSync called with rows:", rows);
 }
 
 // Function to log in the user
@@ -281,7 +289,7 @@ loginButton.addEventListener("click", async () => {
 
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log("User logged in:", userCredential.user.email);
+    debug("User logged in:", userCredential.user.email);
     fetchApiKey(userCredential.user.uid);
   } catch (error) {
     console.error("Login failed:", error.message);
@@ -291,7 +299,7 @@ loginButton.addEventListener("click", async () => {
 
 // Function to fetch Asana API Key
 async function fetchApiKey(uid) {
-  console.log("Fetching API key for user:", uid);
+  debug("Fetching API key for user:", uid);
   try {
     const userDoc = await getDoc(doc(db, "users", uid));
     if (userDoc.exists()) {
@@ -311,7 +319,7 @@ async function fetchApiKey(uid) {
 logoutButton.addEventListener("click", async () => {
   try {
     await signOut(auth);
-    console.log("User logged out.");
+    debug("User logged out.");
     userDataElement.innerText = "Not logged in!";
     apiKeyElement.innerText = "Fetching API key...";
     apiKeyElement.innerText = "";
@@ -336,5 +344,27 @@ async function tryCatch(callback) {
     await callback();
   } catch (error) {
     console.error(error);
+  }
+}
+
+var DEBUG_INDENT = 0;
+
+async function debug(message, params, updateIndent) {
+  if (DEBUG_INDENT > 0) {
+    if (updateIndent && updateIndent <= 0) {
+      message = "│   ".repeat(DEBUG_INDENT - 1) + "└── " + message;
+    } else {
+      message = "│   ".repeat(DEBUG_INDENT - 1) + "├── " + message;
+    }
+  }
+
+  if (params) {
+    console.log(message, params);
+  } else {
+    console.log(message);
+  }
+
+  if (updateIndent) {
+    DEBUG_INDENT += updateIndent;
   }
 }
