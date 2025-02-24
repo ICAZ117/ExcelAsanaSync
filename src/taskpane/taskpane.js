@@ -369,9 +369,55 @@ async function debug(message, params, updateIndent) {
   }
 }
 
+async function formatLoggingQueue(queueObj) {
+  var mainQueue = queueObj.getQueue();
+  const activeColumns = new Set();
+
+  // Loop backwards through main queue
+  for (var i = mainQueue.length - 1; i >= 0; i--) {
+    var subQueue = mainQueue[i];
+
+    // If current indent is 0, we just continue
+    // Else, we need to update the string indentation
+    if (subQueue.indentLevel > 0) {
+      // Mark the current indent level as active
+      activeColumns.add(subQueue.indentLevel);
+
+      // Construct indentation string
+      var indent = "";
+
+      for (var k = 1; k <= subQueue.indentLevel; k++) {
+        // If k is the current indent level, add a junction
+        if (k === printJob.indentLevel) {
+          continue;
+        }
+        // Else if the column is active, add a pipe
+        else if (activeColumns.has(k)) {
+          indent += "│   ";
+        }
+        // Else, add a space
+        else {
+          indent += "    ";
+        }
+      }
+
+      // Loop through all printJobs in subqueue and update indentation
+      for (var j = 0; j < subQueue.size() - 1; j++) {
+        var printJob = subQueue.get(j);
+        printJob.msg = indent + "├── " + printJob.msg;
+      }
+
+      // Update the last element
+      var lastPrintJob = subQueue.get(subQueue.size() - 1);
+      lastPrintJob.msg = indent + "└── " + lastPrintJob.msg;
+    }
+  }
+}
+
 class Queue {
   constructor() {
     this.items = [];
+    this.indentLevel = 0;
   }
 
   enqueue(element) {
@@ -390,12 +436,27 @@ class Queue {
     return this.items.length === 0;
   }
 
+  getQueue() {
+    return this.items;
+  }
+
+  get(index) {
+    return this.items[index];
+  }
+
   size() {
     return this.items.length;
   }
 
   print() {
     console.log(this.items.join(" <- "));
+  }
+}
+
+class PrintJob {
+  constructor(msg, params) {
+    this.msg = msg;
+    this.params = params;
   }
 }
 
