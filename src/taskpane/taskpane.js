@@ -1,3 +1,4 @@
+/* eslint-disable no-redeclare */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /*
  * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
@@ -10,6 +11,56 @@ import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { asanaAPISync } from "lrh-asanaapisync";
+
+class Queue {
+  constructor(indentLevel) {
+    this.items = [];
+    this.indentLevel = indentLevel || 0;
+  }
+
+  enqueue(element) {
+    this.items.push(element);
+  }
+
+  dequeue() {
+    return this.isEmpty() ? null : this.items.shift();
+  }
+
+  front() {
+    return this.isEmpty() ? null : this.items[0];
+  }
+
+  isEmpty() {
+    return this.items.length === 0;
+  }
+
+  getQueue() {
+    return this.items;
+  }
+
+  get(index) {
+    return this.items[index];
+  }
+
+  size() {
+    return this.items.length;
+  }
+
+  print() {
+    console.log(this.items.join(" <- "));
+  }
+
+  clear() {
+    this.items = [];
+  }
+}
+
+class PrintJob {
+  constructor(msg = "", params = undefined) {
+    this.msg = msg;
+    this.params = params;
+  }
+}
 
 // Your Firebase project configuration
 const firebaseConfig = {
@@ -160,61 +211,63 @@ function handleSelectionChanged() {
   });
 }
 
+// ██       █████  ██    ██ ███    ██  ██████ ██   ██     ███████ ██    ██ ███    ██  ██████
+// ██      ██   ██ ██    ██ ████   ██ ██      ██   ██     ██       ██  ██  ████   ██ ██
+// ██      ███████ ██    ██ ██ ██  ██ ██      ███████     ███████   ████   ██ ██  ██ ██
+// ██      ██   ██ ██    ██ ██  ██ ██ ██      ██   ██          ██    ██    ██  ██ ██ ██
+// ███████ ██   ██  ██████  ██   ████  ██████ ██   ██     ███████    ██    ██   ████  ██████
 async function launchSync() {
-  //   const token = await getStorageItem("firebaseToken");
-  //   if (!token) {
-  //     debug("NO TOKEN FOUND");
-  //     return;
-  //   }
+  LOGGING_INDENT = 0;
 
-  DEBUG_INDENT = 0;
-
-  debug("\n\nBEGIN LAUNCH SYNC", undefined, 1);
+  addLog("\n\nBEGIN LAUNCH SYNC", undefined, 1);
   await Excel.run(async (context) => {
     // 1. Get the full rows for the current selection.
-    debug("1. Getting the full rows for the current selection", undefined, 1);
+    addLog("1. Getting the full rows for the current selection", undefined, 1);
     // ┌
 
     // Get selected range
-    debug("1.1. Getting selected range", undefined, 1);
+    addLog("1.1. Getting selected range", undefined, 1);
     const selectedRange = context.workbook.getSelectedRange();
     selectedRange.load("address, values"); // Load values before expansion
     await context.sync();
-    debug("Selected Range Address: ", selectedRange.address);
-    debug("Selected Range Values: ", selectedRange.values, -1);
+    addLog("Selected Range Address: ", selectedRange.address);
+    addLog("Selected Range Values: ", selectedRange.values, -1);
 
     // Expand to entire row
-    debug("1.2. Expanding selection to full rows", undefined, 1);
+    addLog("1.2. Expanding selection to full rows", undefined, 1);
     const entireRows = selectedRange.getEntireRow();
     entireRows.load("address");
     await context.sync();
 
-    debug("Expanded Rows Address: ", entireRows.address);
+    addLog("Expanded Rows Address: ", entireRows.address);
 
     const startRow = entireRows.address.split("!")[1].split(":")[0];
     const endRow = entireRows.address.split("!")[1].split(":")[1];
-    debug("Start row: ", startRow);
-    debug("End row: ", endRow, -1);
+    addLog("Start row: ", startRow);
+    addLog("End row: ", endRow, -1);
 
     // Loop over selected rows
-    debug("1.3. Looping over selected rows", undefined, 1);
+    addLog("1.3. Looping over selected rows", undefined, 1);
     var rows = [];
     const worksheets = context.workbook.worksheets.getActiveWorksheet();
-    debug("Worksheets: ", worksheets);
+    addLog("Worksheets: ", worksheets);
     const range = worksheets.getRange(`A${startRow}:G${endRow}`);
-    debug("Range: ", range);
+    addLog("Range: ", range);
     range.load("values");
     await context.sync();
     rows.push(range.values);
 
-    debug("Rows: ", rows, -2);
+    addLog("Rows: ", rows, -2);
 
     // 2. Open the first dialog to display the selected rows.
-    debug("2. Open the first dialog to display the selected rows.", undefined, 1);
+    addLog("2. Open the first dialog to display the selected rows.", undefined, -1);
 
     const rowsData = encodeURIComponent(JSON.stringify(rows));
-    const rowsDialogUrl = `./dialogs/rowsDialog.html?rows=${rowsData}`;
-    Office.context.ui.displayDialogAsync(rowsDialogUrl, { height: 50, width: 50 }, (result) => {
+    // const rowsDialogUrl = `https://localhost:3000/dialogs/rowsDialog.html?rows=${rowsData}`;
+    const rowsDialogUrl = `https://lrh-codebook.web.app`;
+    Office.context.ui.displayDialogAsync(rowsDialogUrl, { height: 400, width: 600 }, (result) => {
+      console.log("HERE'S THE RESULT: ", result);
+
       if (result.status === Office.AsyncResultStatus.Succeeded) {
         const rowsDialog = result.value;
 
@@ -275,7 +328,12 @@ async function launchSync() {
     });
   });
 
-  DEBUG_INDENT = 0;
+  addLog("END LAUNCH SYNC");
+  LOGGING_INDENT = 0;
+
+  formatLoggingQueue();
+  printLoggingQueue();
+  loggingQueue.clear();
 }
 
 async function handleSync(rows) {
@@ -369,26 +427,55 @@ async function debug(message, params, updateIndent) {
   }
 }
 
-async function formatLoggingQueue(queueObj) {
-  var mainQueue = queueObj.getQueue();
+const loggingQueue = new Queue();
+var LOGGING_INDENT = 0;
+
+async function addLog(message, params, updateIndent) {
+  var printJob = new PrintJob(message, params);
+
+  // If the logging queue is empty, create a new print level and printjob
+  if (loggingQueue.isEmpty()) {
+    var printLevel = new Queue(LOGGING_INDENT);
+    printLevel.enqueue(printJob);
+    loggingQueue.enqueue(printLevel);
+  } else {
+    // Add printjob to the last print level
+    var printLevel = loggingQueue.get(loggingQueue.size() - 1);
+    printLevel.enqueue(printJob);
+  }
+
+  // If necessary, update logging indent and add next print level
+  if (updateIndent) {
+    LOGGING_INDENT += updateIndent;
+    var printLevel = new Queue(LOGGING_INDENT);
+    loggingQueue.enqueue(printLevel);
+  }
+}
+
+async function formatLoggingQueue() {
+  var mainQueue = loggingQueue.getQueue();
   const activeColumns = new Set();
 
   // Loop backwards through main queue
   for (var i = mainQueue.length - 1; i >= 0; i--) {
     var subQueue = mainQueue[i];
 
+    // Unmark any active columns that are greater than the current indent level
+    activeColumns.forEach((activeColumn) => {
+      if (activeColumn > subQueue.indentLevel) {
+        activeColumns.delete(activeColumn);
+      }
+    });
+
     // If current indent is 0, we just continue
     // Else, we need to update the string indentation
     if (subQueue.indentLevel > 0) {
-      // Mark the current indent level as active
-      activeColumns.add(subQueue.indentLevel);
-
       // Construct indentation string
       var indent = "";
 
       for (var k = 1; k <= subQueue.indentLevel; k++) {
         // If k is the current indent level, add a junction
-        if (k === printJob.indentLevel) {
+        if (k === subQueue.indentLevel) {
           continue;
         }
         // Else if the column is active, add a pipe
@@ -409,90 +496,32 @@ async function formatLoggingQueue(queueObj) {
 
       // Update the last element
       var lastPrintJob = subQueue.get(subQueue.size() - 1);
-      lastPrintJob.msg = indent + "└── " + lastPrintJob.msg;
+
+      // If the last element is active, add a junction
+      if (activeColumns.has(subQueue.indentLevel)) {
+        lastPrintJob.msg = indent + "├── " + lastPrintJob.msg;
+      } else {
+        lastPrintJob.msg = indent + "└── " + lastPrintJob.msg;
+      }
+
+      // Mark the current indent level as active
+      activeColumns.add(subQueue.indentLevel);
     }
   }
 }
 
-class Queue {
-  constructor() {
-    this.items = [];
-    this.indentLevel = 0;
-  }
+async function printLoggingQueue() {
+  var mainQueue = loggingQueue.getQueue();
+  for (var i = 0; i < mainQueue.length; i++) {
+    var subQueue = mainQueue[i];
+    for (var j = 0; j < subQueue.size(); j++) {
+      var printJob = subQueue.get(j);
 
-  enqueue(element) {
-    this.items.push(element);
-  }
-
-  dequeue() {
-    return this.isEmpty() ? null : this.items.shift();
-  }
-
-  front() {
-    return this.isEmpty() ? null : this.items[0];
-  }
-
-  isEmpty() {
-    return this.items.length === 0;
-  }
-
-  getQueue() {
-    return this.items;
-  }
-
-  get(index) {
-    return this.items[index];
-  }
-
-  size() {
-    return this.items.length;
-  }
-
-  print() {
-    console.log(this.items.join(" <- "));
-  }
-}
-
-class PrintJob {
-  constructor(msg, params) {
-    this.msg = msg;
-    this.params = params;
-  }
-}
-
-class Stack {
-  constructor(type) {
-    this.stack = [];
-    this.type = type;
-  }
-
-  push(element) {
-    if (!(element instanceof this.type)) {
-      throw new Error(`Element must be an instance of ${this.type.name}`);
+      if (printJob.params) {
+        console.log(printJob.msg, printJob.params);
+      } else {
+        console.log(printJob.msg);
+      }
     }
-    this.stack.push(element);
-  }
-
-  pop() {
-    return this.isEmpty() ? null : this.stack.pop();
-  }
-
-  top() {
-    return this.isEmpty() ? null : this.stack[this.stack.length - 1];
-  }
-
-  isEmpty() {
-    return this.stack.length === 0;
-  }
-
-  size() {
-    return this.stack.length;
-  }
-
-  print() {
-    console.log("Stack:");
-    this.stack.forEach((item, index) => {
-      console.log(`Element ${index + 1}:`, item);
-    });
   }
 }
