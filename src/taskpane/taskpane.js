@@ -368,3 +368,70 @@ async function debug(message, params, updateIndent) {
     DEBUG_INDENT += updateIndent;
   }
 }
+
+class Queue {
+  constructor() {
+    this.items = [];
+  }
+
+  enqueue(element) {
+    this.items.push(element);
+  }
+
+  dequeue() {
+    return this.isEmpty() ? null : this.items.shift();
+  }
+
+  front() {
+    return this.isEmpty() ? null : this.items[0];
+  }
+
+  isEmpty() {
+    return this.items.length === 0;
+  }
+
+  size() {
+    return this.items.length;
+  }
+
+  print() {
+    console.log(this.items.join(" <- "));
+  }
+}
+
+class Stack {
+  constructor(type) {
+    this.stack = [];
+    this.type = type;
+  }
+
+  push(element) {
+    if (!(element instanceof this.type)) {
+      throw new Error(`Element must be an instance of ${this.type.name}`);
+    }
+    this.stack.push(element);
+  }
+
+  pop() {
+    return this.isEmpty() ? null : this.stack.pop();
+  }
+
+  top() {
+    return this.isEmpty() ? null : this.stack[this.stack.length - 1];
+  }
+
+  isEmpty() {
+    return this.stack.length === 0;
+  }
+
+  size() {
+    return this.stack.length;
+  }
+
+  print() {
+    console.log("Stack:");
+    this.stack.forEach((item, index) => {
+      console.log(`Element ${index + 1}:`, item);
+    });
+  }
+}
