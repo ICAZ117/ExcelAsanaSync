@@ -220,120 +220,168 @@ async function launchSync() {
   LOGGING_INDENT = 0;
 
   addLog("\n\nBEGIN LAUNCH SYNC", undefined, 1);
-  await Excel.run(async (context) => {
-    // 1. Get the full rows for the current selection.
-    addLog("1. Getting the full rows for the current selection", undefined, 1);
-    // ┌
+  try {
+    await Excel.run(async (context) => {
+      // 1. Get the full rows for the current selection.
+      addLog("1. Getting the full rows for the current selection", undefined, 1);
+      // ┌
 
-    // Get selected range
-    addLog("1.1. Getting selected range", undefined, 1);
-    const selectedRange = context.workbook.getSelectedRange();
-    selectedRange.load("address, values"); // Load values before expansion
-    await context.sync();
-    addLog("Selected Range Address: ", selectedRange.address);
-    addLog("Selected Range Values: ", selectedRange.values, -1);
+      // Get selected range
+      addLog("1.1. Getting selected range", undefined, 1);
+      const selectedRange = context.workbook.getSelectedRange();
+      selectedRange.load("address, values"); // Load values before expansion
+      await context.sync();
+      addLog("Selected Range Address: ", selectedRange.address);
+      addLog("Selected Range Values: ", selectedRange.values, -1);
 
-    // Expand to entire row
-    addLog("1.2. Expanding selection to full rows", undefined, 1);
-    const entireRows = selectedRange.getEntireRow();
-    entireRows.load("address");
-    await context.sync();
+      // Expand to entire row
+      addLog("1.2. Expanding selection to full rows", undefined, 1);
+      const entireRows = selectedRange.getEntireRow();
+      entireRows.load("address");
+      await context.sync();
 
-    addLog("Expanded Rows Address: ", entireRows.address);
+      addLog("Expanded Rows Address: ", entireRows.address);
 
-    const startRow = entireRows.address.split("!")[1].split(":")[0];
-    const endRow = entireRows.address.split("!")[1].split(":")[1];
-    addLog("Start row: ", startRow);
-    addLog("End row: ", endRow, -1);
+      const startRow = entireRows.address.split("!")[1].split(":")[0];
+      const endRow = entireRows.address.split("!")[1].split(":")[1];
+      addLog("Start row: ", startRow);
+      addLog("End row: ", endRow, -1);
 
-    // Loop over selected rows
-    addLog("1.3. Looping over selected rows", undefined, 1);
-    var rows = [];
-    const worksheets = context.workbook.worksheets.getActiveWorksheet();
-    addLog("Worksheets: ", worksheets);
-    const range = worksheets.getRange(`A${startRow}:G${endRow}`);
-    addLog("Range: ", range);
-    range.load("values");
-    await context.sync();
-    rows.push(range.values);
+      // Loop over selected rows
+      addLog("1.3. Looping over selected rows", undefined, 1);
+      var rows = [];
+      const worksheets = context.workbook.worksheets.getActiveWorksheet();
+      addLog("Worksheets: ", worksheets);
+      const range = worksheets.getRange(`A${startRow}:G${endRow}`);
+      addLog("Range: ", range);
+      range.load("values");
+      await context.sync();
+      rows.push(range.values);
 
-    addLog("Rows: ", rows, -2);
+      // After you have your rows data:
+      addLog("Rows: ", rows, -2);
 
-    // 2. Open the first dialog to display the selected rows.
-    addLog("2. Open the first dialog to display the selected rows.", undefined, -1);
+      // 2. Open the first dialog to display the selected rows.
+      addLog("2. Open the first dialog to display the selected rows.", undefined, 1);
 
-    const rowsData = encodeURIComponent(JSON.stringify(rows));
-    // const rowsDialogUrl = `https://localhost:3000/dialogs/rowsDialog.html?rows=${rowsData}`;
-    const rowsDialogUrl = `https://lrh-codebook.web.app`;
-    Office.context.ui.displayDialogAsync(rowsDialogUrl, { height: 400, width: 600 }, (result) => {
-      console.log("HERE'S THE RESULT: ", result);
+      // Open dialog with promise-based handling
+      const rowsData = encodeURIComponent(JSON.stringify(rows));
+      const rowsDialogUrl = `https://localhost:8080/dialogs/rowsDialog?rows=${rowsData}`;
 
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        const rowsDialog = result.value;
+      // Convert dialog opening to promise
+      const rowsDialog = await new Promise((resolve, reject) => {
+        Office.context.ui.displayDialogAsync(
+          rowsDialogUrl,
+          { height: 400, width: 600, displayInIframe: false },
+          (result) => {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+              addLog("Rows dialog opened successfully.", undefined, 0);
+              resolve(result.value);
+            } else {
+              addLog("Failed to open rows dialog.", undefined, 0);
+              reject(new Error("Failed to open rows dialog"));
+            }
+          }
+        );
+      });
 
+      // Setup dialog message handling with promises
+      const dialogResult = await new Promise((resolve) => {
         // Send the rows data to the dialog
-        rowsDialog.messageParent(JSON.stringify({ type: "displayRows", data: rows }));
+        // rowsDialog.messageParent(JSON.stringify({ type: "displayRows", data: rows }));
 
-        // Listen for messages from the rows dialog
         rowsDialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+          console.log("Received message from dialog:", arg.message);
+
           const message = JSON.parse(arg.message);
+
           if (message.type === "preview") {
-            // 3. Build preview data (only for rows with a valid task)
-            const previewData = rows.reduce((acc, row) => {
-              // Assuming columns: 0: project, 1: doctor, 2: date, 3: task, 4: time, 5: comment
-              const excelTask = row[3];
-              if (Object.prototype.hasOwnProperty.call(taskConversion, excelTask)) {
-                const asanaTask = taskConversion[excelTask];
-                const previewComment = `${row[2]} - ${row[5]}`;
-                acc.push({
-                  project: row[0],
-                  task: asanaTask,
-                  comment: previewComment,
-                });
-              }
-              return acc;
-            }, []);
-
-            // Open the preview dialog (ensure URL points to your previewDialog.html)
-            const previewDataEncode = encodeURIComponent(JSON.stringify(previewData));
-            const previewDialogUrl = `./dialogs/previewDialog.html?previewData=${previewDataEncode}`;
-            Office.context.ui.displayDialogAsync(previewDialogUrl, { height: 50, width: 50 }, (previewResult) => {
-              if (previewResult.status === Office.AsyncResultStatus.Succeeded) {
-                const previewDialog = previewResult.value;
-
-                // Send the preview data to the preview dialog
-                previewDialog.messageParent(JSON.stringify({ type: "displayPreview", data: previewData }));
-
-                // Handle messages from the preview dialog
-                previewDialog.addEventHandler(Office.EventType.DialogMessageReceived, (e) => {
-                  const previewMsg = JSON.parse(e.message);
-                  if (previewMsg.type === "back") {
-                    // Back: close preview and go back to rows dialog
-                    previewDialog.close();
-                  } else if (previewMsg.type === "launchSync") {
-                    // 4. Launch sync: call handleSync and close both dialogs
-                    handleSync(rows);
-                    previewDialog.close();
-                    rowsDialog.close();
-                  }
-                });
-              }
-            });
+            // Handle preview - open second dialog
+            const previewData = createPreviewData(rows);
+            openPreviewDialog(previewData, rowsDialog).then(resolve);
           } else if (message.type === "back") {
-            // Back button clicked on the rows dialog: just close it.
             rowsDialog.close();
+            resolve({ action: "back" });
           }
         });
+
+        // Handle dialog closed event
+        rowsDialog.addEventHandler(Office.EventType.DialogEventReceived, (arg) => {
+          resolve({ action: "closed" });
+        });
+      });
+
+      // Handle result of dialog flow
+      if (dialogResult.action === "sync") {
+        await handleSync(rows);
+      }
+    });
+  } catch (error) {
+    addLog("Error in launchSync: " + error.message);
+  }
+
+  addLog("END LAUNCH SYNC");
+  LOGGING_INDENT = 0;
+  formatLoggingQueue();
+  printLoggingQueue();
+  loggingQueue.clear();
+}
+
+// Helper function to open preview dialog
+async function openPreviewDialog(previewData, rowsDialog) {
+  const previewDataEncode = encodeURIComponent(JSON.stringify(previewData));
+  const previewDialogUrl = `https://localhost:8080/dialogs/previewDialog?previewData=${previewDataEncode}`;
+
+  const previewDialog = await new Promise((resolve, reject) => {
+    Office.context.ui.displayDialogAsync(previewDialogUrl, { height: 50, width: 50 }, (result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        resolve(result.value);
+      } else {
+        reject(new Error("Failed to open preview dialog"));
       }
     });
   });
 
-  addLog("END LAUNCH SYNC");
-  LOGGING_INDENT = 0;
+  return new Promise((resolve) => {
+    // Send data to preview dialog
+    previewDialog.messageParent(JSON.stringify({ type: "displayPreview", data: previewData }));
 
-  formatLoggingQueue();
-  printLoggingQueue();
-  loggingQueue.clear();
+    // Handle messages from preview dialog
+    previewDialog.addEventHandler(Office.EventType.DialogMessageReceived, (e) => {
+      const previewMsg = JSON.parse(e.message);
+
+      if (previewMsg.type === "back") {
+        previewDialog.close();
+        resolve({ action: "back" });
+      } else if (previewMsg.type === "launchSync") {
+        previewDialog.close();
+        rowsDialog.close();
+        resolve({ action: "sync" });
+      }
+    });
+
+    // Handle dialog closed event
+    previewDialog.addEventHandler(Office.EventType.DialogEventReceived, (arg) => {
+      resolve({ action: "closed" });
+    });
+  });
+}
+
+// Helper to create preview data
+function createPreviewData(rows) {
+  return rows.reduce((acc, row) => {
+    const excelTask = row[3];
+    if (Object.prototype.hasOwnProperty.call(taskConversion, excelTask)) {
+      const asanaTask = taskConversion[excelTask];
+      const previewComment = `${row[2]} - ${row[5]}`;
+      acc.push({
+        project: row[0],
+        task: asanaTask,
+        comment: previewComment,
+      });
+    }
+    return acc;
+  }, []);
 }
 
 async function handleSync(rows) {
